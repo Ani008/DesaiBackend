@@ -84,8 +84,8 @@ exports.updateProject = async (req, res) => {
       projectCode,
       receiptNo,
       perSurgeryAmount,
-      balanceSurgery,
       totalAmount,
+      balanceSurgery, // this is actually the NEW TARGET from frontend
     } = req.body;
 
     const projectId = Number(id);
@@ -102,6 +102,17 @@ exports.updateProject = async (req, res) => {
       });
     }
 
+    // 🔥 Count existing surgeries
+    const completedSurgeries = await prisma.surgery.count({
+      where: { projectId: projectId },
+    });
+
+    // 🔥 Recalculate balance
+    const newBalance = Math.max(balanceSurgery - completedSurgeries, 0);
+
+    // 🔥 Determine status
+    const status = newBalance === 0 ? "COMPLETED" : "ACTIVE";
+
     const updatedProject = await prisma.project.update({
       where: { id: projectId },
       data: {
@@ -109,9 +120,9 @@ exports.updateProject = async (req, res) => {
         projectCode,
         receiptNo,
         perSurgeryAmount,
-        balanceSurgery,
         totalAmount,
-        status: balanceSurgery === 0 ? "COMPLETED" : "ACTIVE",
+        balanceSurgery: newBalance,
+        status,
       },
     });
 
@@ -121,7 +132,6 @@ exports.updateProject = async (req, res) => {
     res.status(500).json({ message: "Failed to update project" });
   }
 };
-
 
 exports.deleteProject = async (req, res) => {
   try {

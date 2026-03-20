@@ -13,6 +13,7 @@ const { downloadExcel } = require("../controllers/batchController");
 const { downloadZip } = require("../controllers/zipController");
 
 const { deleteBatch } = require("../controllers/batchController");
+const { getBatchAnalytics } = require("../controllers/batchController");
 
 
 
@@ -58,6 +59,8 @@ router.delete(
   roleMiddleware("ADMIN", "USER"),
   deleteBatch
 );
+
+router.get("/analytics", getBatchAnalytics);
 
 
 module.exports = router;

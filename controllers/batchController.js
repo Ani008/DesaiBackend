@@ -151,3 +151,100 @@ exports.deleteBatch = async (req, res) => {
     return res.status(500).json({ message: "Failed to delete batch" });
   }
 };
+
+exports.getBatchAnalytics = async (req, res) => {
+  try {
+    const { filter, month, year } = req.query;
+
+    const today = new Date();
+
+    let whereCondition = {};
+
+    if (filter === "daily") {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+
+      whereCondition.batchDate = {
+        gte: start,
+        lte: end,
+      };
+    }
+
+    if (filter === "weekly") {
+      const start = new Date(today);
+      start.setDate(today.getDate() - today.getDay());
+
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+
+      whereCondition.batchDate = {
+        gte: start,
+        lte: end,
+      };
+    }
+
+    if (filter === "monthly") {
+      if (!month || !year) {
+        return res.status(400).json({
+          message: "Month and year required",
+        });
+      }
+
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0);
+
+      whereCondition.batchDate = {
+        gte: start,
+        lte: end,
+      };
+    }
+
+    if (filter === "yearly") {
+      if (!year) {
+        return res.status(400).json({
+          message: "Year required",
+        });
+      }
+
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, 11, 31);
+
+      whereCondition.batchDate = {
+        gte: start,
+        lte: end,
+      };
+    }
+
+    const batches = await prisma.batch.findMany({
+      where: whereCondition,
+      select: {
+        completedCount: true,
+        incompleteCount: true,
+      },
+    });
+
+    const completed = batches.reduce(
+      (sum, b) => sum + (b.completedCount || 0),
+      0
+    );
+
+    const incomplete = batches.reduce(
+      (sum, b) => sum + (b.incompleteCount || 0),
+      0
+    );
+
+    res.json({
+      completed,
+      incomplete,
+      totalBatches: batches.length,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Failed to fetch analytics",
+    });
+  }
+};
